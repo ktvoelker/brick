@@ -122,7 +122,7 @@ data Size = Fixed
           -- how much they are given (non-greedy).
           | Greedy
           -- ^ Greedy widgets take up all the space they are given.
-          deriving (Show, Eq, Ord)
+          deriving (Show, Eq, Ord, Bounded)
 
 -- | The type of widgets.
 data Widget =

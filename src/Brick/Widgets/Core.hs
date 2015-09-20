@@ -289,6 +289,11 @@ hBoxRenderer =
                     in V.vertCat [img, p]
                 }
 
+maximumSizes :: [Widget] -> (Size, Size)
+maximumSizes = foldl f (minBound, minBound)
+  where
+    f (mh, mv) w = (max mh $ hSize w, max mv $ vSize w)
+
 -- | Render a series of widgets in a box layout in the order given.
 --
 -- The growth policy of a box layout is the most unrestricted of the
@@ -338,7 +343,8 @@ hBoxRenderer =
 -- requests.
 renderBox :: BoxRenderer -> [Widget] -> Widget
 renderBox br ws = do
-    Widget (maximum $ hSize <$> ws) (maximum $ vSize <$> ws) $ do
+    let (maxHSize, maxVSize) = maximumSizes ws
+    Widget maxHSize maxVSize $ do
       c <- getContext
 
       let pairsIndexed = zip [(0::Int)..] ws

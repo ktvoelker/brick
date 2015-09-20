@@ -130,17 +130,17 @@ drawListElements l drawElem =
 
             off = start * (l^.listItemHeightL)
 
-            drawnElements = (flip V.imap) es $ \i e ->
+            drawnElements = (\f -> V.ifoldr f [] es) $ \i e ws ->
                 let isSelected = Just (i + start) == l^.listSelectedL
                     elemWidget = drawElem isSelected e
                     makeVisible = if isSelected
                                   then (visible . withDefAttr listSelectedAttr)
                                   else id
-                in makeVisible elemWidget
+                in makeVisible elemWidget : ws
 
         render $ viewport (l^.listNameL) Vertical $
                  translateBy (Location (0, off)) $
-                 vBox $ V.toList drawnElements
+                 vBox drawnElements
 
 -- | Insert an item into a list at the specified position.
 listInsert :: Int
