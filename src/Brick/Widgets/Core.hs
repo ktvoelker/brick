@@ -25,6 +25,7 @@ module Brick.Widgets.Core
   , (<+>)
   , hBox
   , vBox
+  , vBoxFixed
 
   -- * Limits
   , hLimit
@@ -224,7 +225,11 @@ fill ch =
 -- is the box).
 vBox :: [Widget] -> Widget
 vBox [] = emptyWidget
-vBox pairs = renderBox vBoxRenderer pairs
+vBox pairs = renderBox vBoxRenderer False pairs
+
+vBoxFixed :: [Widget] -> Widget
+vBoxFixed [] = emptyWidget
+vBoxFixed pairs = renderBox vBoxRenderer True pairs
 
 -- | Horizontal box layout: put the specified widgets next to each other
 -- in the specified order (leftmost first). Defers growth policies to
@@ -232,7 +237,7 @@ vBox pairs = renderBox vBoxRenderer pairs
 -- is the box).
 hBox :: [Widget] -> Widget
 hBox [] = emptyWidget
-hBox pairs = renderBox hBoxRenderer pairs
+hBox pairs = renderBox hBoxRenderer False pairs
 
 -- | The process of rendering widgets in a box layout is exactly the
 -- same except for the dimension under consideration (width vs. height),
@@ -341,36 +346,40 @@ maximumSizes = foldl f (minBound, minBound)
 -- Finally, the padded images are concatenated together vertically and
 -- returned along with the translated cursor positions and visibility
 -- requests.
-renderBox :: BoxRenderer -> [Widget] -> Widget
-renderBox br ws = do
+renderBox :: BoxRenderer -> Bool -> [Widget] -> Widget
+renderBox br allFixed ws = do
     let (maxHSize, maxVSize) = maximumSizes ws
     Widget maxHSize maxVSize $ do
       c <- getContext
 
-      let pairsIndexed = zip [(0::Int)..] ws
-          (his, lows) = partition (\p -> (primaryWidgetSize br $ snd p) == Fixed) pairsIndexed
+      allResults <- case allFixed of
+        True -> mapM render ws
+        False -> do
+          let pairsIndexed = zip [(0::Int)..] ws
+              (his, lows) = partition (\p -> (primaryWidgetSize br $ snd p) == Fixed) pairsIndexed
 
-      renderedHis <- mapM (\(i, prim) -> (i,) <$> render prim) his
+          renderedHis <- mapM (\(i, prim) -> (i,) <$> render prim) his
 
-      renderedLows <- case lows of
-          [] -> return []
-          ls -> do
-              let remainingPrimary = c^.(contextPrimary br) - (sum $ (^._2.imageL.(to $ imagePrimary br)) <$> renderedHis)
-                  primaryPerLow = remainingPrimary `div` length ls
-                  padFirst = remainingPrimary - (primaryPerLow * length ls)
-                  secondaryPerLow = c^.(contextSecondary br)
-                  primaries = replicate (length ls) primaryPerLow & ix 0 %~ (+ padFirst)
+          renderedLows <- case lows of
+              [] -> return []
+              ls -> do
+                  let remainingPrimary = c^.(contextPrimary br) - (sum $ (^._2.imageL.(to $ imagePrimary br)) <$> renderedHis)
+                      primaryPerLow = remainingPrimary `div` length ls
+                      padFirst = remainingPrimary - (primaryPerLow * length ls)
+                      secondaryPerLow = c^.(contextSecondary br)
+                      primaries = replicate (length ls) primaryPerLow & ix 0 %~ (+ padFirst)
 
-              let renderLow ((i, prim), pri) =
-                      (i,) <$> (render $ limitPrimary br pri
-                                       $ limitSecondary br secondaryPerLow
-                                       $ cropToContext prim)
+                  let renderLow ((i, prim), pri) =
+                          (i,) <$> (render $ limitPrimary br pri
+                                           $ limitSecondary br secondaryPerLow
+                                           $ cropToContext prim)
 
-              if remainingPrimary > 0 then mapM renderLow (zip ls primaries) else return []
+                  if remainingPrimary > 0 then mapM renderLow (zip ls primaries) else return []
 
-      let rendered = sortBy (compare `DF.on` fst) $ renderedHis ++ renderedLows
-          allResults = snd <$> rendered
-          allImages = (^.imageL) <$> allResults
+          let rendered = sortBy (compare `DF.on` fst) $ renderedHis ++ renderedLows
+          return $ snd <$> rendered
+
+      let allImages = (^.imageL) <$> allResults
           allPrimaries = imagePrimary br <$> allImages
           allTranslatedResults = (flip map) (zip [0..] allResults) $ \(i, result) ->
               let off = locationFromOffset br offPrimary

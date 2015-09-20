@@ -140,7 +140,7 @@ drawListElements l drawElem =
 
         render $ viewport (l^.listNameL) Vertical $
                  translateBy (Location (0, off)) $
-                 vBox drawnElements
+                 vBoxFixed drawnElements
 
 -- | Insert an item into a list at the specified position.
 listInsert :: Int
